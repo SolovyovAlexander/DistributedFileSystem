@@ -3,6 +3,7 @@ import struct
 from threading import Thread
 import glob
 
+
 def recvall(sock, n):
     # Helper function to recv n bytes or return None if EOF is hit
     data = b''
@@ -13,6 +14,7 @@ def recvall(sock, n):
         data += packet
     return data
 
+
 def recv_msg(sock):
     # Read message length and unpack it into an integer
     raw_msglen = recvall(sock, 4)
@@ -22,7 +24,8 @@ def recv_msg(sock):
     # Read the message data
     return recvall(sock, msglen)
 
-def check_collision(file_name, extension, num = 1):
+
+def check_collision(file_name, extension, num=1):
     files = glob.glob("./*" + extension)
     flag = 0
     for file in files:
@@ -31,17 +34,16 @@ def check_collision(file_name, extension, num = 1):
             flag = 1
             break
     if (flag == 1):
-        if (num==1):
-            file_name = file_name[:(len(file_name)-len(extension))]
+        if (num == 1):
+            file_name = file_name[:(len(file_name) - len(extension))]
             file_name = file_name + '_copy' + str(num) + extension
-            return check_collision(file_name, extension, num+1)
+            return check_collision(file_name, extension, num + 1)
         else:
-            file_name = file_name[:(len(file_name) - len(extension) - 5 - len(str(num-1)))]
+            file_name = file_name[:(len(file_name) - len(extension) - 5 - len(str(num - 1)))]
             file_name = file_name + '_copy' + str(num) + extension
             return check_collision(file_name, extension, num + 1)
     else:
         return file_name
-
 
 
 class accept(Thread):
@@ -58,6 +60,7 @@ class accept(Thread):
 
         s.close()
 
+
 class get(Thread):
     def __init__(self, sc, address):
         super().__init__()
@@ -65,7 +68,6 @@ class get(Thread):
         self.address = address
 
     def run(self) -> None:
-
         print(self.address)
         file_name = recv_msg(self.sc).decode()
         extension = recv_msg(self.sc).decode()
@@ -79,15 +81,11 @@ class get(Thread):
             f.write(data)
             data = recv_msg(self.sc)
 
-
-
-
         f.close()
 
         self.sc.close()
 
+
 if __name__ == '__main__':
     a = accept()
     a.run()
-
-
