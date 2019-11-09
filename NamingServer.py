@@ -3,6 +3,7 @@ import struct
 from threading import Thread
 import glob
 
+
 def recvall(sock, n):
     # Helper function to recv n bytes or return None if EOF is hit
     data = b''
@@ -13,6 +14,7 @@ def recvall(sock, n):
         data += packet
     return data
 
+
 def recv_msg(sock):
     # Read message length and unpack it into an integer
     raw_msglen = recvall(sock, 4)
@@ -22,7 +24,8 @@ def recv_msg(sock):
     # Read the message data
     return recvall(sock, msglen)
 
-def check_collision(file_name, extension, num = 1):
+
+def check_collision(file_name, extension, num=1):
     files = glob.glob("./*" + extension)
     flag = 0
     for file in files:
@@ -31,17 +34,16 @@ def check_collision(file_name, extension, num = 1):
             flag = 1
             break
     if (flag == 1):
-        if (num==1):
-            file_name = file_name[:(len(file_name)-len(extension))]
+        if (num == 1):
+            file_name = file_name[:(len(file_name) - len(extension))]
             file_name = file_name + '_copy' + str(num) + extension
-            return check_collision(file_name, extension, num+1)
+            return check_collision(file_name, extension, num + 1)
         else:
-            file_name = file_name[:(len(file_name) - len(extension) - 5 - len(str(num-1)))]
+            file_name = file_name[:(len(file_name) - len(extension) - 5 - len(str(num - 1)))]
             file_name = file_name + '_copy' + str(num) + extension
             return check_collision(file_name, extension, num + 1)
     else:
         return file_name
-
 
 
 class accept(Thread):
@@ -53,10 +55,11 @@ class accept(Thread):
 
         while True:
             sc, address = s.accept()
-            new_thread = get(sc, address)
+            new_thread = get_instrution(sc, address)
             new_thread.run()
 
         s.close()
+
 
 class get(Thread):
     def __init__(self, sc, address):
@@ -65,7 +68,6 @@ class get(Thread):
         self.address = address
 
     def run(self) -> None:
-
         print(self.address)
         file_name = recv_msg(self.sc).decode()
         extension = recv_msg(self.sc).decode()
@@ -79,15 +81,60 @@ class get(Thread):
             f.write(data)
             data = recv_msg(self.sc)
 
-
-
-
         f.close()
 
         self.sc.close()
 
+
+class get_instrution(Thread):
+    def __init__(self, sock, address):
+        super().__init__()
+        self.sock = sock
+        self.address = address
+
+    def send_msg(self, request: str):
+        # Prefix each message with a 4-byte length (network byte order)
+        msg = struct.pack('>I', len(request.encode())) + request.encode()
+        self.sock.sendall(msg)
+
+    def run(self) -> None:
+        print(self.address)
+        instruction = recv_msg(self.sock).decode()
+        print(instruction)
+        if instruction == 'init':
+            # TODO: return address and port of storage server, delete files from every server
+            # otherwise send error
+            self.send_msg('0.0.0.0')
+            self.send_msg('9999')
+
+        elif instruction == 'fcreate':
+            ...
+        elif instruction == 'fread':
+            ...
+        elif instruction == 'fwrite':
+            ...
+        elif instruction == 'fdelete':
+            ...
+        elif instruction == 'finfo':
+            ...
+        elif instruction == 'fcopy':
+            ...
+        elif instruction == 'fmove':
+            ...
+        elif instruction == 'dopen':
+            ...
+        elif instruction == 'dread':
+            ...
+        elif instruction == 'dmake':
+            ...
+        elif instruction == 'ddelete':
+            ...
+        else:
+            print('wrong instruction')
+
+        self.sock.close()
+
+
 if __name__ == '__main__':
     a = accept()
     a.run()
-
-
