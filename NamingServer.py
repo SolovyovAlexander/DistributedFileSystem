@@ -2,6 +2,8 @@ import socket
 import struct
 from threading import Thread
 import glob
+import json
+import NsHandler
 
 
 def recvall(sock, n):
@@ -50,15 +52,17 @@ class accept(Thread):
     def run(self) -> None:
         s = socket.socket(socket.AF_INET, type=socket.SOCK_STREAM)
 
-        s.bind(("", 9999))
+        s.bind(("", 9001))
         s.listen()
+        sc, address = s.accept()
 
-        while True:
-            sc, address = s.accept()
-            new_thread = get_instrution(sc, address)
-            new_thread.run()
+        instruction = Instruction(sc, address)
+        instruction.run()
 
         s.close()
+
+
+
 
 
 class get(Thread):
@@ -86,55 +90,83 @@ class get(Thread):
         self.sc.close()
 
 
-class get_instrution(Thread):
+class Instruction(Thread):
     def __init__(self, sock, address):
         super().__init__()
         self.sock = sock
         self.address = address
 
-    def send_msg(self, request: str):
-        # Prefix each message with a 4-byte length (network byte order)
-        msg = struct.pack('>I', len(request.encode())) + request.encode()
-        self.sock.sendall(msg)
-
     def run(self) -> None:
         print(self.address)
-        instruction = recv_msg(self.sock).decode()
-        print(instruction)
-        if instruction == 'init':
-            # TODO: return address and port of storage server, delete files from every server
-            # otherwise send error
-            self.send_msg('0.0.0.0')
-            self.send_msg('9999')
+        try:
+            instruction = recv_msg(self.sock).decode()
+            print(instruction)
+            if instruction == 'init':
+                # TODO: return address and port of storage server, delete files from every server
+                # otherwise send error
+                NsHandler.send_msg(self.sock, 'localhost')
+                NsHandler.send_msg(self.sock, '9002')
 
-        elif instruction == 'fcreate':
-            ...
-        elif instruction == 'fread':
-            ...
-        elif instruction == 'fwrite':
-            ...
-        elif instruction == 'fdelete':
-            ...
-        elif instruction == 'finfo':
-            ...
-        elif instruction == 'fcopy':
-            ...
-        elif instruction == 'fmove':
-            ...
-        elif instruction == 'dopen':
-            ...
-        elif instruction == 'dread':
-            ...
-        elif instruction == 'dmake':
-            ...
-        elif instruction == 'ddelete':
-            ...
+            elif instruction[:7] == 'fcreate' and len(instruction) > 8 and instruction[7] == ' ' and instruction[8] != '':
+                file_create = NsHandler.FileCreate(filename=instruction.split(' ')[1], file_tree=file_tree)
+                file_create.execute(self.sock)
+            elif instruction == 'fread':
+                ...
+            elif instruction == 'fwrite':
+                ...
+            elif instruction == 'fdelete':
+                ...
+            elif instruction == 'finfo':
+                ...
+            elif instruction == 'fcopy':
+                ...
+            elif instruction == 'fmove':
+                ...
+            elif instruction == 'dopen':
+                ...
+            elif instruction == 'dread':
+                ...
+            elif instruction == 'dmake':
+                ...
+            elif instruction == 'ddelete':
+                ...
+            else:
+                print('wrong instruction')
+        except Exception:
+            print('Can\'t receive data from client')
+
+
+class File_Tree:
+    def __init__(self):
+        self.file_tree = json.load(open('file_tree.json'))
+
+    def ss_pub_address(self):
+        ss_addresses = []
+        for address in self.file_tree['storage_servers']:
+            ss_addresses.append({'ip': address['public_ip'], 'port': address['port']})
+        return ss_addresses
+
+    def ss_priv_address(self):
+        ss_addresses = []
+        for address in self.file_tree['storage_servers']:
+            ss_addresses.append({'ip': address['private_ip'], 'port': address['port']})
+        return ss_addresses
+
+    def file_exist(self, file_name):
+        if file_name in self.file_tree['storage_servers'][0]['files']:
+            return True
         else:
-            print('wrong instruction')
-
-        self.sock.close()
-
+            return False
+    def add_file(self, filename):
+        for server in self.file_tree['storage_servers']:
+            server['files'].append(filename)
+        with open('file_tree.json', 'w') as outfile:
+            json.dump(self.file_tree, outfile)
 
 if __name__ == '__main__':
-    a = accept()
-    a.run()
+    file_tree = File_Tree()
+    PRIMARY_NODE_PRIV = file_tree.ss_priv_address()[0]['ip']
+    PRIMARY_NODE_PUB = file_tree.ss_pub_address()[0]['ip']
+    while True:
+        a = accept()
+        a.run()
