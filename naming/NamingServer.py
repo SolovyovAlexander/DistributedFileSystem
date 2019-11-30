@@ -3,7 +3,7 @@ import struct
 from threading import Thread
 import glob
 import json
-from naming import NsHandler
+from DistributedFileSystem.naming import NsHandler
 
 
 def recvall(sock, n):

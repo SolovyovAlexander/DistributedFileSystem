@@ -5,6 +5,7 @@ CODES = {
     'DIR_OPEN': 10,
     'DIR_READ': 11,
 
+    'RESET': 666,
 
 
     'STORAGE_INIT': 100

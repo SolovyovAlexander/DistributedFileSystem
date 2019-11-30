@@ -2,8 +2,8 @@ import os
 import sys
 from time import sleep
 
-from libs.protocol import MessageProvider
-from storage.StorageRequests import instruction_resolver
+from DistributedFileSystem.libs.protocol import MessageProvider
+from DistributedFileSystem.storage.StorageRequests import instruction_resolver
 
 
 class StorageServer:
@@ -58,6 +58,13 @@ class StorageServer:
             except ValueError as error:
                 print('    Error: ' + error.__str__())
         return None
+
+    def reset(self, data):
+        print("RESET")
+
+    NAMING_CALLBACKS = {
+        'RESET': reset
+    }
 
 
 if __name__ == '__main__':

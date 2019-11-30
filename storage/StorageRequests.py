@@ -1,4 +1,4 @@
-from libs.protocol import Request
+from DistributedFileSystem.libs.protocol import Request
 
 
 class Initialize(Request):

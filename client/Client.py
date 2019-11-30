@@ -2,8 +2,8 @@ from time import sleep
 from tkinter import *
 from tkinter import messagebox, filedialog
 
-from client.ClientRequest import Initialize, FileCreate, FileWrite, DirOpen, DirRead, Exit, UnknownCommand
-from libs.protocol import MessageProvider, Request
+from DistributedFileSystem.client.ClientRequest import Initialize, FileCreate, FileWrite, DirOpen, DirRead, Exit, UnknownCommand
+from DistributedFileSystem.libs.protocol import MessageProvider, Request
 
 
 def instruction_resolver(instruction, params: list) -> Request:
@@ -108,7 +108,7 @@ class MainWindow:
         self.b6.pack(side="top", fill=X)
         self.b0.pack(side="top", fill=X)
 
-        self.b0.bind("<Button-1>", self.clicked_client_init)
+        self.b0.bind("<Button-1>", self.reset_dfs)
         self.b6.bind("<Button-1>", self.back_dir)
 
         self.dir_actions.grid(column=4, row=0, sticky=N + S + W + E)
@@ -145,6 +145,22 @@ class MainWindow:
         self.status = Label(text="None", bg='gray', font=("Arial Bold", 11))
         self.status.grid(column=1, row=2, columnspan=2, sticky=N + S + W + E)
 
+        self.clicked_client_init(None)
+
+    def reset_dfs(self):
+        res = "RESET"
+        response = self.client.SEND_INSTRUCTION(res)
+
+        if response is not None:
+            if response.status == 200:
+                self.status.configure(text='OK', bg='green')
+                self.directories.delete(0, self.directories.size())
+                self.files.delete(0, self.files.size())
+                self.directories.insert(0, *response.data['DIRS'])
+                self.files.insert(0, [])
+                self.current_directory_path = [response.data['DIR']]
+        else:
+            self.status.configure(text='NO CONNECTION', bg='red')
 
     def clicked_client_init(self, event):
 

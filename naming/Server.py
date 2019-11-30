@@ -3,8 +3,9 @@ import socket
 from struct import unpack, pack
 from threading import Thread, Lock
 
-from libs.request_codes import get_instruction_by_code
-from libs.protocol import Response
+from DistributedFileSystem.libs.request_codes import get_instruction_by_code
+from DistributedFileSystem.libs.protocol import Response, Request
+from DistributedFileSystem.naming.StorageServerRequests import Reset
 
 
 class FileTree:
@@ -63,10 +64,34 @@ class FileTree:
 
 class StorageServerInstance:
 
-    def __init__(self, address):
+    def __init__(self, address, sock):
         ip, port = address
         self.ip = ip
         self.port = port
+        self.sock = sock
+
+    def send_request(self, request: Request):
+        request_type, data_length, data = request.to_payloads()
+        self.sock.send(request_type)
+        ok, = unpack('I', self.sock.recv(4))
+        assert ok == 0
+        self.sock.send(data_length)
+        ok, = unpack('I', self.sock.recv(4))
+        assert ok == 0
+        self.sock.send(data)
+        ok, = unpack('I', self.sock.recv(4))
+        assert ok == 0
+
+        status, = unpack('I', self.sock.recv(4))
+        self.sock.send(pack('I', 0))
+        length, = unpack('I', self.sock.recv(4))
+        self.sock.send(pack('I', 0))
+        data = self.sock.recv(length).decode()
+        self.sock.send(pack('I', 0))
+
+        data = json.loads(data)
+
+        return Response(status=status, data=data)
 
 
 class NamingServer:
@@ -110,8 +135,7 @@ class NamingServer:
         except AssertionError:
             return Response(400, {})
 
-        if request_data['dir_name'] == 'root' and len(request_data['dir_path']) == 1 and request_data['dir_path'][
-            0] == '':
+        if request_data['dir_name'] == 'root' and len(request_data['dir_path']) == 1 and request_data['dir_path'][0] == '':
             return self.init_client(request_data)
 
         dir = self.file_tree.dir_open(request_data['dir_name'], request_data['dir_path'])
@@ -146,6 +170,14 @@ class NamingServer:
     def unknown_instruction(self, request_data: dict) -> Response:
         return Response(400, {'error': 'Unknown Instruction'})
 
+    def reset(self, reqdata):
+        for each_storage in self.storages:
+            request = Reset(params=[])
+            response = each_storage.send_request(request)
+            print(response.code)
+
+
+
     CLIENT_CALLBACKS = {
         'CLIENT_INIT': init_client,
         'FILE_CREATE': file_create,
@@ -153,6 +185,7 @@ class NamingServer:
         'DIR_READ': read_directory,
         'DIR_CREATE': open_directory,
         'DIR_DELETE': open_directory,
+        'RESET': reset,
         'UNKNOWN': unknown_instruction,
     }
 
@@ -271,7 +304,7 @@ class SelectStorageServer(Thread):
 
             while True:
                 sc, address = s.accept()
-                cct = ClientConnectionThread(sc, address, self.ns)
+                cct = StorageServerConnectionThread(sc, address, self.ns)
                 self.logger('Storage Server \'%s\' connected.' % (address,))
                 cct.start()
 
@@ -288,7 +321,7 @@ class StorageServerConnectionThread(Thread):
         self.sock = sock
         self.address = address
         self.ns = ns
-        self.ns.storages.append(StorageServerInstance(address))
+        self.ns.storages.append(StorageServerInstance(address, sock))
         self.primary = False
         self.debug = debug
 

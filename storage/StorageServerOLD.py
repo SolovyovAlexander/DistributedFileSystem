@@ -3,7 +3,7 @@ import struct
 from threading import Thread
 import glob
 
-from storage import SsHandler
+from DistributedFileSystem.storage import SsHandler
 
 NAMING_SERVER_IP = 'localhost'
 TOTAL_SPACE = 1024

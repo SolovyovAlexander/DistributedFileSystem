@@ -1,4 +1,4 @@
-from libs.request_codes import CODES
+from DistributedFileSystem.libs.request_codes import CODES
 import json
 import socket
 from struct import unpack, pack
