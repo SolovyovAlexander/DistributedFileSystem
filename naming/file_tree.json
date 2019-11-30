@@ -1,0 +1,45 @@
+{
+  "FILES": {},
+  "DIRS": {
+    "root": {
+      "FILES": {},
+      "DIRS": {
+        "home": {
+          "FILES": {},
+          "DIRS": {
+            "skyline": {
+              "FILES": {},
+              "DIRS": {
+                "rekek1": {"FILES": {}, "DIRS":  {}},
+                "rekek2": {"FILES": {}, "DIRS":  {}},
+                "rekek3": {"FILES": {}, "DIRS":  {}}
+              }
+            },
+            "aleksdaemon": {
+              "FILES": {
+                "sashok.py": "8d6b8ac89490411ba312e818b7ec23fd"
+              },
+              "DIRS": {}
+            }
+          }
+        },
+        "var": {
+          "FILES": {},
+          "DIRS": {
+            "www": {
+              "FILES": {
+                "mysite.html": "8d6b8ac89490411ba312e818b7ec23fd",
+                "mysite2.html": "8d6b8ac89490411ba312e818b7ec23fd",
+                "mysite3.html": "8d6b8ac89490411ba312e818b7ec23fd",
+                "mysite4.html": "8d6b8ac89490411ba312e818b7ec23fd",
+                "mysite5.html": "8d6b8ac89490411ba312e818b7ec23fd",
+                "mysite6.html": "8d6b8ac89490411ba312e818b7ec23fd"
+              },
+              "DIRS": {}
+            }
+          }
+        }
+      }
+    }
+  }
+}

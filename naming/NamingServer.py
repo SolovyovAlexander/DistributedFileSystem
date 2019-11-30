@@ -3,7 +3,7 @@ import struct
 from threading import Thread
 import glob
 import json
-import NsHandler
+from naming import NsHandler
 
 
 def recvall(sock, n):
@@ -60,9 +60,6 @@ class accept(Thread):
         instruction.run()
 
         s.close()
-
-
-
 
 
 class get(Thread):
@@ -163,10 +160,9 @@ class File_Tree:
         with open('file_tree.json', 'w') as outfile:
             json.dump(self.file_tree, outfile)
 
+
 if __name__ == '__main__':
     file_tree = File_Tree()
-    PRIMARY_NODE_PRIV = file_tree.ss_priv_address()[0]['ip']
-    PRIMARY_NODE_PUB = file_tree.ss_pub_address()[0]['ip']
     while True:
         a = accept()
         a.run()

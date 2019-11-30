@@ -1,0 +1,10 @@
+{
+  "storage_servers": [
+    {
+      "private_ip": "localhost",
+      "public_ip": "localhost",
+      "port": 9002,
+      "files": ["lox/pidr.txt", "lox.txt"]
+    }
+  ]
+}

@@ -3,9 +3,7 @@ import struct
 from threading import Thread
 import glob
 
-import os
-
-import SsHandler
+from storage import SsHandler
 
 NAMING_SERVER_IP = 'localhost'
 TOTAL_SPACE = 1024
@@ -50,9 +48,6 @@ def check_collision(file_name, extension, num=1):
             return check_collision(file_name, extension, num + 1)
     else:
         return file_name
-
-
-
 
 
 class accept(Thread):
