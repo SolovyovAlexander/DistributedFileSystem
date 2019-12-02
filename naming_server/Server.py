@@ -161,9 +161,10 @@ class NamingServer:
 
     def get_replica_set(self, request_data: dict) -> Response:
         replicas = []
-        for r in self.storages:
+        # Since first storage is a primary
+        for r in self.storages[1:]:
             ip, port = r.address
-            replicas.append({'IP': ip, 'PORT': port})
+            replicas.append({'IP': ip, 'PORT': 9003})
         return Response(200, {'REPLICAS': replicas})
 
     CLIENT_CALLBACKS = {
