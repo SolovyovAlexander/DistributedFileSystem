@@ -1,42 +1,10 @@
+import socket
+from struct import unpack
 from time import sleep
 from tkinter import *
 from tkinter import messagebox, filedialog
-
-from DistributedFileSystem.client.ClientRequest import Initialize, FileCreate, FileWrite, DirOpen, DirRead, Exit, UnknownCommand
-from DistributedFileSystem.libs.protocol import MessageProvider, Request
-
-
-def instruction_resolver(instruction, params: list) -> Request:
-    if instruction == 'CLIENT_INIT':
-        return Initialize(params=params)
-    elif instruction == 'FILE_CREATE':
-        return FileCreate(params=params)
-    elif instruction == 'FILE_CREATE_FORCE':
-        return FileCreate(params=params, force=True)
-    elif instruction == 'fread':
-        ...
-    elif instruction == 'fwrite':
-        return FileWrite(params=params)
-    elif instruction == 'fdelete':
-        ...
-    elif instruction == 'finfo':
-        ...
-    elif instruction == 'fcopy':
-        ...
-    elif instruction == 'fmove':
-        ...
-    elif instruction == 'DIR_OPEN':
-        return DirOpen(params=params)
-    elif instruction == 'DIR_READ':
-        return DirRead(params=params)
-    elif instruction == 'dmake':
-        ...
-    elif instruction == 'ddelete':
-        ...
-    elif instruction == 'exit':
-        return Exit(params=params)
-    else:
-        return UnknownCommand(params=params, command=instruction)
+from libs.protocol import MessageProvider, Request
+from libs.helper import *
 
 
 class PopupWindow(object):
@@ -62,35 +30,16 @@ class Client:
         self.current_directory_path = []
         self.file_tree = {}
 
-    def CONNECT(self, event=None):
+    def connect(self, event=None):
         for i in range(3):
             try:
                 self.connection = MessageProvider('localhost', 9001)
+                self.connection.connect()
                 print('Successfully connected to Naming Server')
                 break
             except ConnectionError as error:
                 print('Cannot connect to naming server', error, file=sys.stderr)
                 sleep(3)
-
-    def SEND_INSTRUCTION(self, command):
-
-        if self.connection is None:
-            self.CONNECT()
-
-        print('INSTRUCTION [\033[1;36;6m%s\033[0;0;0m]' % command)
-        if self.connection is not None:
-            command = command.split(' ')
-            instruction = command[0]
-            params = command[1:]
-            client_req = instruction_resolver(instruction, params)
-            try:
-                response = self.connection.send(client_req)
-                print('    STATUS: ', response.status)
-                print('    DATA: ', response.data)
-                return response
-            except ValueError as error:
-                print('    Error: ' + error.__str__())
-        return None
 
 
 class MainWindow:
@@ -115,16 +64,19 @@ class MainWindow:
 
         self.file_actions = Frame(root)
         self.b1 = Button(self.file_actions, text="CREATE FILE")
+        self.b8 = Button(self.file_actions, text="DELETE FILE")
         self.b2 = Button(self.file_actions, text="DOWNLOAD FILE")
         self.b3 = Button(self.file_actions, text="UPLOAD FILE")
 
         self.b1.bind("<Button-1>", self.clicked_file_create)
-        self.b2.bind("<Button-1>", self.clicked_file_upload)
+        self.b2.bind("<Button-1>", self.clicked_file_download)
         self.b3.bind("<Button-1>", self.clicked_file_upload)
+        self.b8.bind("<Button-1>", self.clicked_file_delete)
 
         self.b1.pack(side="top", fill=X)
         self.b2.pack(side="top", fill=X)
         self.b3.pack(side="top", fill=X)
+        self.b8.pack(side="top", fill=X)
 
         self.file_actions.grid(column=4, row=1, sticky=N + S + W + E)
 
@@ -147,39 +99,36 @@ class MainWindow:
 
         self.clicked_client_init(None)
 
-    def reset_dfs(self):
-        res = "RESET"
-        response = self.client.SEND_INSTRUCTION(res)
+    def reset_dfs(self, event):
+        request = Request(command='RESET', params={})
+        response = self.client.connection.send(request)
 
         if response is not None:
             if response.status == 200:
                 self.status.configure(text='OK', bg='green')
                 self.directories.delete(0, self.directories.size())
                 self.files.delete(0, self.files.size())
-                self.directories.insert(0, *response.data['DIRS'])
                 self.files.insert(0, [])
-                self.current_directory_path = [response.data['DIR']]
         else:
             self.status.configure(text='NO CONNECTION', bg='red')
 
     def clicked_client_init(self, event):
 
-        res = "CLIENT_INIT"
-        response = self.client.SEND_INSTRUCTION(res)
+        if self.client.connection is None:
+            self.client.connect(None)
 
-        if response is not None:
-            if response.status == 200:
-                self.status.configure(text='OK', bg='green')
-                self.directories.delete(0, self.directories.size())
-                self.files.delete(0, self.files.size())
-                self.directories.insert(0, *response.data['DIRS'])
-                self.files.insert(0, [])
-                self.current_directory_path = [response.data['DIR']]
+        request = Request(command='CLIENT_INIT', params={})
+        response = self.client.connection.send(request)
+
+        if response.status == 200:
+            self.status.configure(text='OK', bg='green')
+            self.directories.delete(0, self.directories.size())
+            self.files.delete(0, self.files.size())
+            self.directories.insert(0, *response.data['DIRS'])
+            self.files.insert(0, *response.data['FILES'])
+            self.current_directory_path = [response.data['DIR']]
         else:
-            self.status.configure(text='NO CONNECTION', bg='red')
-
-    def clicked_file_upload(self, event):
-        ...
+            self.status.configure(text='ERROR', bg='red')
 
     def clicked_file_create(self, event):
 
@@ -188,34 +137,122 @@ class MainWindow:
         root.wait_window(w.top)
         self.b1["state"] = "normal"
 
-        print(w.value)
-
-        instruction = "FILE_CREATE "
-        response = self.client.SEND_INSTRUCTION(instruction)
+        request = Request('FILE_CREATE', params={'file_name': str(w.value), 'dir_path': self.current_directory_path, 'force': False})
+        response = self.client.connection.send(request)
         if response is not None:
             if response.status == 203:
                 self.status.configure(text='NEED CONFIRMATION', bg='yellow')
                 answer = messagebox.askokcancel('File already exist',
                                                 'File already exist, Do you want to replace it?')
                 if answer is True:
-                    res = "FILE_CREATE_FORCE " + str(w.value)
-                    response = self.client.SEND_INSTRUCTION(res)
-                    if response.status == 201:
-                        self.status.configure(text='CREATED', bg='green')
+                    request = Request('FILE_CREATE', params={'file_name': str(w.value), 'dir_path': self.current_directory_path, 'force': True})
+                    response = self.client.connection.send(request)
+
+            if response.status == 201:
+                self.status.configure(text='CREATED', bg='green')
+
+                self.directories.delete(0, self.directories.size())
+                self.directories.insert(0, *response.data['DIRS'])
+
+                self.files.delete(0, self.files.size())
+                self.files.insert(0, *response.data['FILES'])
+
         else:
             self.status.configure(text='NO CONNECTION', bg='red')
 
+    def clicked_file_download(self, event):
+        request = Request(command='FILE_DOWNLOAD', params={
+            'file_name': self.files.get(ACTIVE),
+            'dir_path': self.current_directory_path
+        })
+        response = self.client.connection.send(request)
+
+        if response.status == 200:
+            self.status.configure(text='OK', bg='green')
+
+            sock = socket.socket(socket.AF_INET, type=socket.SOCK_STREAM)
+            sock.connect((response.data['IP'], response.data['PORT']))
+            request = Request('FILE_DOWNLOAD_DIRECT', {'file_name': self.files.get(ACTIVE), 'dir_path': self.current_directory_path})
+
+            dirpath = filedialog.askdirectory()
+
+            request_type, data_length, data = request.to_payloads()
+            sock.send(request_type)
+            ok, = unpack('I', sock.recv(4))
+            assert ok == 0
+            sock.send(data_length)
+            ok, = unpack('I', sock.recv(4))
+            assert ok == 0
+            sock.send(data)
+            ok, = unpack('I', sock.recv(4))
+            assert ok == 0
+            file = open(dirpath + '/' + self.files.get(ACTIVE), 'wb')
+            recv_file(sock, file)
+            sock.close()
+
+        else:
+            self.status.configure(text=response.message(), bg='red')
+
+    def clicked_file_upload(self, event):
+        request = Request(command='FILE_UPLOAD', params={
+            'file_name': self.files.get(ACTIVE),
+            'dir_path': self.current_directory_path
+        })
+        response = self.client.connection.send(request)
+
+        if response.status == 200:
+            self.status.configure(text='OK', bg='green')
+
+            fp = filedialog.askopenfile(mode='rb')
+
+            sock = socket.socket(socket.AF_INET, type=socket.SOCK_STREAM)
+            sock.connect((response.data['IP'], response.data['PORT']))
+            request = Request('FILE_UPLOAD_DIRECT',
+                              {'file_name': fp.name.split('/')[-1], 'dir_path': self.current_directory_path})
+
+            request_type, data_length, data = request.to_payloads()
+            sock.send(request_type)
+            ok, = unpack('I', sock.recv(4))
+            assert ok == 0
+            sock.send(data_length)
+            ok, = unpack('I', sock.recv(4))
+            assert ok == 0
+            sock.send(data)
+            ok, = unpack('I', sock.recv(4))
+            assert ok == 0
+
+
+            send_file(sock, fp)
+            sock.close()
+            fp.close()
+
+        else:
+            self.status.configure(text=response.message(), bg='red')
+
+
+    def clicked_file_delete(self, event):
+        request = Request(command='FILE_DELETE', params={
+            'file_name': self.files.get(ACTIVE),
+            'dir_path': self.current_directory_path
+        })
+        response = self.client.connection.send(request)
+        if response.status == 200:
+            self.directories.delete(0, self.directories.size())
+            self.directories.insert(0, *response.data['DIRS'])
+
+            self.files.delete(0, self.files.size())
+            self.files.insert(0, *response.data['FILES'])
+
     def clicked_dir(self, event):
 
-        instruction = 'DIR_OPEN ' + self.directories.get(ACTIVE) + ' ' + ','.join(self.current_directory_path)
-        response = self.client.SEND_INSTRUCTION(instruction)
+        request = Request('DIR_OPEN', {'dir_name': self.directories.get(ACTIVE), 'dir_path': self.current_directory_path},)
+        response = self.client.connection.send(request)
 
         if response.status == 200:
             self.current_directory_path.append(response.data['DIR'])
-            instruction = 'DIR_READ ' + self.directories.get(ACTIVE) + ' ' + ','.join(self.current_directory_path)
-            response = self.client.SEND_INSTRUCTION(instruction)
+            request = Request('DIR_READ', {'dir_name': self.directories.get(ACTIVE), 'dir_path': self.current_directory_path}, )
+            response = self.client.connection.send(request)
             if response.status == 200:
-
                 self.directories.delete(0, self.directories.size())
                 self.directories.insert(0, *response.data['DIRS'])
 
@@ -225,17 +262,21 @@ class MainWindow:
     def back_dir(self, event):
 
         if len(self.current_directory_path) > 1:
-            instruction = 'DIR_OPEN ' + self.current_directory_path[len(self.current_directory_path)-2] + ' ' + ','.join(self.current_directory_path[0:len(self.current_directory_path)-2])
-            response = self.client.SEND_INSTRUCTION(instruction)
+            request = Request('DIR_OPEN', {
+                'dir_name': self.current_directory_path[len(self.current_directory_path) - 2],
+                'dir_path': self.current_directory_path[0:len(self.current_directory_path) - 2]}
+                              )
+            response = self.client.connection.send(request)
 
             if response.status == 200:
                 del self.current_directory_path[-1]
                 del self.current_directory_path[-1]
                 self.current_directory_path.append(response.data['DIR'])
-                instruction = 'DIR_READ ' + self.current_directory_path[len(self.current_directory_path)-1] + ' ' + ','.join(self.current_directory_path)
-                response = self.client.SEND_INSTRUCTION(instruction)
+                request = Request('DIR_READ', {
+                    'dir_name': self.current_directory_path[len(self.current_directory_path) - 1],
+                    'dir_path': self.current_directory_path}, )
+                response = self.client.connection.send(request)
                 if response.status == 200:
-
                     self.directories.delete(0, self.directories.size())
                     self.directories.insert(0, *response.data['DIRS'])
 

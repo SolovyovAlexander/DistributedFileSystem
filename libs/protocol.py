@@ -1,14 +1,24 @@
-from DistributedFileSystem.libs.request_codes import CODES
 import json
 import socket
 from struct import unpack, pack
 
 
-
 class Response:
+    STATUSES = {
+        200: 'OK',
+        201: 'CREATED',
+        203: 'NEED CONFIRMATION',
+        400: 'BAD REQUEST',
+        404: 'NOT FOUND',
+        500: 'NO AVAILABLE REPLICAS'
+    }
+
     def __init__(self, status: int, data: dict):
         self.status = status
         self.data = data
+
+    def message(self):
+        return Response.STATUSES[self.status]
 
     def to_payloads(self) -> list:
         data = json.dumps(self.data).encode()
@@ -21,25 +31,67 @@ class Response:
 
 
 class Request:
-    def __init__(self, params: list, command: str = ''):
+    REQUESTS = {
+        # CLIENT -> NAMING
+        'CLIENT_INIT': {},
+        'FILE_CREATE': {'file_name': str, 'dir_path': list, 'force': bool},
+        'FILE_UPLOAD': {'file_name': str, 'dir_path': list},
+        'FILE_DOWNLOAD': {'file_name': str, 'dir_path': list},
+        'FILE_DELETE': {'file_name': str, 'dir_path': list},
+        'DIR_OPEN': {'dir_name': str, 'dir_path': list},
+        'DIR_READ': {'dir_name': str, 'dir_path': list},
+
+        # NAMING -> STORAGE
+        'RESET': {},
+        'STORAGE_FILE_CREATE': {'file_name': str, 'dir_path': list},
+        'STORAGE_FILE_DELETE': {'file_name': str, 'dir_path': list},
+        'CONFIRM_FILE': {'hash': str, 'file_name': str, 'dir_path': list},
+
+        # STORAGE -> NAMING
+        'STORAGE_INIT': {},
+        'GET_REPLICA_SET': {},
+
+        # CLIENT -> STORAGE
+        'FILE_DOWNLOAD_DIRECT': {'file_name': str, 'dir_path': list},
+        'FILE_UPLOAD_DIRECT': {'file_name': str, 'dir_path': list},
+
+        # STORAGE -> STORAGE (like CLIENT)
+        'FILE_REPLICATE': {'file_name': str, 'dir_path': list}
+    }
+
+    def __init__(self, command: str, params: dict):
+        if command not in Request.REQUESTS:
+            raise ValueError('No request of type [%s] defined in protocol' % command)
         self.request_type = command
-        self.params_count = 0
-        self.params = params
-        self.validated_params = None
+        self.validated_params = self.validate_params(params)
 
-    def execute(self, response: Response):
-        return
+    @staticmethod
+    def get_request_code(command: str) -> int:
+        keys = list(Request.REQUESTS.keys())
+        for index in range(len(keys)):
+            if keys[index] == command:
+                return index
+        return -1
 
-    def validate_params(self):
-        self.validated_params = {}
+    @staticmethod
+    def get_instruction_by_code(code: int):
+        keys = list(Request.REQUESTS.keys())
+        return keys[code]
+
+    def validate_params(self, params: dict) -> dict:
+        pattern = Request.REQUESTS[self.request_type]
+        for p_name, p_type in pattern.items():
+            if p_name not in params:
+                raise ValueError(
+                    'Request [%s] requires parameter [%s]. (passed %s)' % (self.request_type, p_name, params.__str__()))
+            if type(params[p_name]) != p_type:
+                raise ValueError('Request [%s] requires parameter [%s] of type %s, got %s)' %
+                                 (self.request_type, p_name, p_type, type(params[p_name])))
+        return params
 
     def to_payloads(self) -> list:
-        self.validate_params()
         data = json.dumps(self.validated_params).encode()
-        try:
-            code = CODES[self.request_type]
-        except KeyError:
-            code = 228
+        code = Request.get_request_code(self.request_type)
         payload = [
             pack('I', code),
             pack('I', len(data)),
@@ -52,12 +104,13 @@ class MessageProvider:
     def __init__(self, host: str, port: int):
         self.host = host
         self.port = port
-        self.sock = None
         self.sock = socket.socket(socket.AF_INET, type=socket.SOCK_STREAM)
-        self.sock.connect((host, port))
+
+    def connect(self):
+        self.sock.connect((self.host, self.port))
 
     def send(self, request: Request) -> Response:
-
+        print('SENDING INSTRUCTION [\033[1;36;6m%s %s\033[0;0;0m] ...' % (request.request_type, request.validated_params.__str__()))
         request_type, data_length, data = request.to_payloads()
         self.sock.send(request_type)
         ok, = unpack('I', self.sock.recv(4))
@@ -77,9 +130,7 @@ class MessageProvider:
         self.sock.send(pack('I', 0))
 
         data = json.loads(data)
-
-        return Response(status=status, data=data)
-
-
-
-
+        response = Response(status=status, data=data)
+        print('  - STATUS: %d [%s]' % (response.status, response.message()))
+        print('  - DATA: ', response.data)
+        return response
