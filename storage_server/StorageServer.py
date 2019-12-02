@@ -109,21 +109,6 @@ class StorageServer:
         self.naming_listener = NamingListener(self, lock)
         self.naming_listener.start()
 
-    def initialize(self):
-        ...
-
-    def file_create(self):
-        ...
-
-    @staticmethod
-    def get_file_hash(file):
-        import hashlib
-        hasher = hashlib.md5()
-        with open(file, 'rb') as afile:
-            buf = afile.read()
-            hasher.update(buf)
-        print(hasher.hexdigest(), file)
-
     def connect(self):
         for i in range(3):
             try:
@@ -147,15 +132,15 @@ class StorageServer:
                 print('    Error: ' + error.__str__())
         return None
 
-    def naming_reset(self, request_data):
-        print("RESET")
-
-    def naming_confirm_file(self, request_data):
-        # TODO check file in DFS, compare with file tree
+    def naming_reset(self, request_data) -> Response:
+        import shutil
+        shutil.rmtree('storage/root/', ignore_errors=True)
+        os.makedirs('storage/root/')
         return Response(200, {})
 
-    def client_upload_file(self, request_data):
-        ...
+    def naming_confirm_file_downloaded(self, request_data):
+        # TODO check file in DFS, compare with file tree
+        return Response(200, {})
 
     def storage_file_create(self, request_data):
         path = 'storage/' + str('/'.join(request_data['dir_path']) + '/' + request_data['file_name'])
@@ -172,11 +157,28 @@ class StorageServer:
         finally:
             return Response(200, {})
 
+    def storage_folder_create(self, request_data):
+        path = 'storage/' + str('/'.join(request_data['dir_path']) + '/' + request_data['dir_name'])
+        os.makedirs(path)
+        return Response(200, {})
+
+    def storage_folder_delete(self, request_data):
+        import shutil
+        path = 'storage/' + str('/'.join(request_data['dir_path']) + '/' + request_data['dir_name'])
+        try:
+            shutil.rmtree(path, ignore_errors=True)
+        except FileNotFoundError:
+            pass
+        finally:
+            return Response(200, {})
+
     NAMING_CALLBACKS = {
-        'CONFIRM_FILE': naming_confirm_file,
+        'CONFIRM_FILE_DOWNLOADED': naming_confirm_file_downloaded,
         'STORAGE_FILE_CREATE': storage_file_create,
         'STORAGE_FILE_DELETE': storage_file_delete,
-        'RESET': naming_reset
+        'STORAGE_FOLDER_CREATE': storage_folder_create,
+        'STORAGE_FOLDER_DELETE': storage_folder_delete,
+        'RESET_REPLICA': naming_reset
     }
 
 
@@ -250,6 +252,11 @@ class ClientConnectionThread(Thread):
 
                 recv_file(self.sock, fp)
 
+                request = Request('CONFIRM_FILE_UPLOADED', {'hash': get_file_hash(path), 'file_name': data['file_name'], 'dir_path': data['dir_path']})
+                response = self.ss.send_req_to_naming(request)
+
+                assert response.status == 200
+
                 request = Request('GET_REPLICA_SET', params={})
                 response = self.ss.naming_connection.send(request)
 
@@ -283,7 +290,3 @@ if __name__ == '__main__':
     response = storage.send_req_to_naming(request)
     if response.status == 200:
         storage.file_tree = response.data['FILE_TREE']
-
-    # for path, sub_dirs, files in os.walk('storage\\'):
-    #     for name in files:
-    #         StorageServer.get_file_hash(os.path.join(path, name))

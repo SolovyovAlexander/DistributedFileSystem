@@ -44,8 +44,7 @@ class NamingServer:
 
     def open_directory(self, request_data: dict) -> Response:
 
-        if request_data['dir_name'] == 'root' and len(request_data['dir_path']) == 1 and request_data['dir_path'][
-            0] == '':
+        if request_data['dir_name'] == 'root' and len(request_data['dir_path']) == 1 and request_data['dir_path'][0] == '':
             return self.init_client(request_data)
 
         dir = self.file_tree.dir_open(request_data['dir_name'], request_data['dir_path'])
@@ -53,6 +52,34 @@ class NamingServer:
             return Response(200, {'DIR': request_data['dir_name']})
         else:
             return Response(404, {})
+
+    def create_directory(self, request_data: dict) -> Response:
+        potential_path = request_data['dir_path'].copy()
+        potential_path.append(request_data['dir_name'])
+
+        if self.file_tree.path_exists(potential_path):
+            return Response(400, {'ERROR': 'Folder already exists'})
+        dir = self.file_tree.insert_dir(request_data['dir_name'], request_data['dir_path'])
+        if dir is not None:
+            request = Request(command='STORAGE_FOLDER_CREATE', params={'dir_name': request_data['dir_name'], 'dir_path': request_data['dir_path']})
+            self.broadcast(request)
+
+            return Response(201, dir)
+        else:
+            return Response(404, {'ERROR': 'NO SUCH FILEPATH'})
+
+    def delete_directory(self, request_data: dict) -> Response:
+        path = request_data['dir_path'].copy()
+        path.append(request_data['dir_name'])
+
+        if self.file_tree.path_exists(path):
+            dir = self.file_tree.delete_dir(request_data['dir_name'], request_data['dir_path'])
+            request = Request(command='STORAGE_FOLDER_DELETE',
+                              params={'dir_name': request_data['dir_name'], 'dir_path': request_data['dir_path']})
+            self.broadcast(request)
+            return Response(200, dir)
+        else:
+            return Response(404, {'ERROR': 'NO SUCH FILEPATH'})
 
     def read_directory(self, request_data: dict) -> Response:
         try:
@@ -98,7 +125,7 @@ class NamingServer:
                 return Response(203, {})
             else:
                 self.broadcast(request)
-                self.file_tree.create_file(request_data['file_name'], request_data['dir_path'])
+                self.file_tree.create_file(request_data['file_name'], path=request_data['dir_path'])
                 kek = self.file_tree.dir_read(request_data['dir_path'][-1], request_data['dir_path'])
                 return Response(201, kek)
 
@@ -111,7 +138,7 @@ class NamingServer:
                 connection = MessageProvider(ip, 9004)
                 connection.connect()
                 file_hash = self.file_tree.get_file_hash(request_data['file_name'], request_data['dir_path'])
-                request = Request('CONFIRM_FILE', {
+                request = Request('CONFIRM_FILE_DOWNLOADED', {
                     'hash': file_hash,
                     'file_name': request_data['file_name'],
                     'dir_path': request_data['dir_path']
@@ -154,10 +181,12 @@ class NamingServer:
         return Response(400, {'error': 'Unknown Instruction'})
 
     def reset(self, request_data: dict) -> Response:
-        for each_storage_thread in self.storages:
-            request = Request('RESET', params={})
-            ...
-        return Response(200, {})
+
+        request = Request('RESET_REPLICA', params={})
+        self.broadcast(request)
+        data = self.file_tree.reset()
+
+        return Response(200, data)
 
     def get_replica_set(self, request_data: dict) -> Response:
         replicas = []
@@ -167,6 +196,11 @@ class NamingServer:
             replicas.append({'IP': ip, 'PORT': 9003})
         return Response(200, {'REPLICAS': replicas})
 
+    def confirm_file_uploaded(self, request_data: dict) -> Response:
+        self.file_tree.insert_file(request_data['file_name'], request_data['hash'], request_data['dir_path'])
+
+        return Response(200, {})
+
     CLIENT_CALLBACKS = {
         'CLIENT_INIT': init_client,
         'FILE_CREATE': file_create,
@@ -175,8 +209,8 @@ class NamingServer:
         'FILE_DELETE': file_delete,
         'DIR_OPEN': open_directory,
         'DIR_READ': read_directory,
-        'DIR_CREATE': open_directory,
-        'DIR_DELETE': open_directory,
+        'DIR_CREATE': create_directory,
+        'DIR_DELETE': delete_directory,
         'RESET': reset,
         'UNKNOWN': unknown_instruction,
     }
@@ -184,6 +218,7 @@ class NamingServer:
     STORAGE_CALLBACKS = {
         'STORAGE_INIT': init_storage,
         'GET_REPLICA_SET': get_replica_set,
+        'CONFIRM_FILE_UPLOADED': confirm_file_uploaded,
         'UNKNOWN': unknown_instruction
     }
 

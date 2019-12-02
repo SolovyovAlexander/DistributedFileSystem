@@ -38,18 +38,27 @@ class Request:
         'FILE_UPLOAD': {'file_name': str, 'dir_path': list},
         'FILE_DOWNLOAD': {'file_name': str, 'dir_path': list},
         'FILE_DELETE': {'file_name': str, 'dir_path': list},
+
+        'DIR_CREATE': {'dir_name': str, 'dir_path': list},
+        'DIR_DELETE': {'dir_name': str, 'dir_path': list},
         'DIR_OPEN': {'dir_name': str, 'dir_path': list},
         'DIR_READ': {'dir_name': str, 'dir_path': list},
+        'RESET': {},
 
         # NAMING -> STORAGE
-        'RESET': {},
         'STORAGE_FILE_CREATE': {'file_name': str, 'dir_path': list},
         'STORAGE_FILE_DELETE': {'file_name': str, 'dir_path': list},
-        'CONFIRM_FILE': {'hash': str, 'file_name': str, 'dir_path': list},
+        'STORAGE_FOLDER_CREATE': {'dir_name': str, 'dir_path': list},
+        'STORAGE_FOLDER_DELETE': {'dir_name': str, 'dir_path': list},
+        'RESET_REPLICA': {},
+        'CONFIRM_FILE_DOWNLOADED': {'hash': str, 'file_name': str, 'dir_path': list},
+
+
 
         # STORAGE -> NAMING
         'STORAGE_INIT': {},
         'GET_REPLICA_SET': {},
+        'CONFIRM_FILE_UPLOADED': {'hash': str, 'file_name': str, 'dir_path': list},
 
         # CLIENT -> STORAGE
         'FILE_DOWNLOAD_DIRECT': {'file_name': str, 'dir_path': list},

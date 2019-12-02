@@ -17,6 +17,18 @@ class FileTree:
         }
         return result
 
+    def reset(self):
+        print(self.file_tree)
+        self.file_tree['DIRS']['root']['FILES'] = {}
+        self.file_tree['DIRS']['root']['DIRS'] = {}
+
+        json_file = open(self.file_name, "w")
+        print(self.file_tree)
+        json.dump(self.file_tree, json_file)
+        json_file.close()
+
+        return self.client_init()
+
     def create_file(self, file_name, path: list):
         current_fs_dir = self.file_tree['DIRS']
         parent = {}
@@ -52,6 +64,72 @@ class FileTree:
         json_file = open(self.file_name, "w")
         json.dump(self.file_tree, json_file)
         json_file.close()
+
+    def insert_file(self, file_name, hash, path: list):
+        current_fs_dir = self.file_tree['DIRS']
+        parent = {}
+
+        for index in range(len(path)):
+            if path[index] in current_fs_dir:
+                key = path[index]
+                parent = current_fs_dir[key]
+                current_fs_dir = current_fs_dir[key]['DIRS']
+            else:
+                return None
+
+        parent['FILES'][file_name] = hash
+        open(self.file_name, 'w').close()
+        json_file = open(self.file_name, "w")
+        json.dump(self.file_tree, json_file)
+        json_file.close()
+
+    def insert_dir(self, dir_name, path: list):
+        current_fs_dir = self.file_tree['DIRS']
+        parent = {}
+        for index in range(len(path)):
+            if path[index] in current_fs_dir:
+                key = path[index]
+                parent = current_fs_dir[key]
+                current_fs_dir = parent['DIRS']
+            else:
+                return None
+
+        current_fs_dir[dir_name] = {'FILES': {}, 'DIRS': {}}
+        open(self.file_name, 'w').close()
+        json_file = open(self.file_name, "w")
+        json.dump(self.file_tree, json_file)
+        json_file.close()
+
+        result = {
+            'FILES': list(parent['FILES'].keys()),
+            'DIRS': list(parent['DIRS'].keys()),
+            'DIR': path[-1]
+        }
+        return result
+
+    def delete_dir(self, dir_name, path: list):
+        current_fs_dir = self.file_tree['DIRS']
+        parent = {}
+        for index in range(len(path)):
+            if path[index] in current_fs_dir:
+                key = path[index]
+                parent = current_fs_dir[key]
+                current_fs_dir = parent['DIRS']
+            else:
+                return None
+
+        del current_fs_dir[dir_name]
+        open(self.file_name, 'w').close()
+        json_file = open(self.file_name, "w")
+        json.dump(self.file_tree, json_file)
+        json_file.close()
+
+        result = {
+            'FILES': list(parent['FILES'].keys()),
+            'DIRS': list(parent['DIRS'].keys()),
+            'DIR': path[-1]
+        }
+        return result
 
     def dir_open(self, dir_name, path: list):
         current_fs_dir = self.file_tree['DIRS']

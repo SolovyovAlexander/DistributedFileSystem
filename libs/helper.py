@@ -31,7 +31,6 @@ def send_msg(sock, msg):
 
 
 def send_file(sock, fp):
-
     data = fp.read(1024)
     print("Sending in progress..")
     while data:
@@ -46,3 +45,12 @@ def recv_file(sock, fp):
         fp.write(data)
         data = recv_msg(sock)
     fp.close()
+
+
+def get_file_hash(file):
+    import hashlib
+    hasher = hashlib.md5()
+    with open(file, 'rb') as afile:
+        buf = afile.read()
+        hasher.update(buf)
+    return hasher.hexdigest()
