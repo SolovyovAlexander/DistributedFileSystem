@@ -157,6 +157,38 @@ class StorageServer:
         finally:
             return Response(200, {})
 
+    def storage_file_move(self, request_data):
+
+        source_path = request_data['dir_path']
+        source_path.append(request_data['file_name'])
+
+        dest_path = request_data['destination_path']
+        dest_path.append(request_data['file_name'])
+
+        source_path = 'storage/' + '/'.join(source_path)
+        dest_path = 'storage/' + '/'.join(dest_path)
+
+        import shutil
+        shutil.move(source_path, dest_path)
+
+        return Response(200, {})
+
+    def storage_file_copy(self, request_data):
+
+        source_path = request_data['dir_path']
+        source_path.append(request_data['file_name'])
+
+        dest_path = request_data['destination_path']
+        dest_path.append(request_data['file_name'])
+
+        source_path = 'storage/' + '/'.join(source_path)
+        dest_path = 'storage/' + '/'.join(dest_path)
+
+        import shutil
+        shutil.copy(source_path, dest_path)
+
+        return Response(200, {})
+
     def storage_folder_create(self, request_data):
         path = 'storage/' + str('/'.join(request_data['dir_path']) + '/' + request_data['dir_name'])
         os.makedirs(path)
@@ -172,10 +204,23 @@ class StorageServer:
         finally:
             return Response(200, {})
 
+    def storage_file_info(self, request_data):
+        import shutil
+        path = 'storage/' + str('/'.join(request_data['dir_path']) + '/' + request_data['file_name'])
+        data = {
+            'size': os.path.getsize(path),
+            'hash': get_file_hash(path),
+            'time': get_file_timestamp(path)
+        }
+        return Response(200, data)
+
     NAMING_CALLBACKS = {
         'CONFIRM_FILE_DOWNLOADED': naming_confirm_file_downloaded,
         'STORAGE_FILE_CREATE': storage_file_create,
         'STORAGE_FILE_DELETE': storage_file_delete,
+        'STORAGE_FILE_MOVE': storage_file_move,
+        'STORAGE_FILE_COPY': storage_file_copy,
+        'STORAGE_FILE_INFO': storage_file_info,
         'STORAGE_FOLDER_CREATE': storage_folder_create,
         'STORAGE_FOLDER_DELETE': storage_folder_delete,
         'RESET_REPLICA': naming_reset
@@ -252,7 +297,8 @@ class ClientConnectionThread(Thread):
 
                 recv_file(self.sock, fp)
 
-                request = Request('CONFIRM_FILE_UPLOADED', {'hash': get_file_hash(path), 'file_name': data['file_name'], 'dir_path': data['dir_path']})
+                request = Request('CONFIRM_FILE_UPLOADED', {'hash': get_file_hash(path), 'file_name': data['file_name'],
+                                                            'dir_path': data['dir_path']})
                 response = self.ss.send_req_to_naming(request)
 
                 assert response.status == 200

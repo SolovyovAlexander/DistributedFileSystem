@@ -59,6 +59,8 @@ class FileTree:
             else:
                 return None
 
+        if file_name not in parent['FILES']:
+            return None
         del parent['FILES'][file_name]
         open(self.file_name, 'w').close()
         json_file = open(self.file_name, "w")
@@ -82,6 +84,13 @@ class FileTree:
         json_file = open(self.file_name, "w")
         json.dump(self.file_tree, json_file)
         json_file.close()
+
+        result = {
+            'FILES': list(parent['FILES'].keys()),
+            'DIRS': list(parent['DIRS'].keys()),
+            'DIR': path[-1]
+        }
+        return result
 
     def insert_dir(self, dir_name, path: list):
         current_fs_dir = self.file_tree['DIRS']
@@ -156,7 +165,8 @@ class FileTree:
                 current_fs_dir = current_fs_dir[key]['DIRS']
             else:
                 return False
-
+        if file_name == '':
+            return False
         if file_name in parent['FILES']:
             return True
         else:

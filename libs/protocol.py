@@ -38,6 +38,9 @@ class Request:
         'FILE_UPLOAD': {'file_name': str, 'dir_path': list},
         'FILE_DOWNLOAD': {'file_name': str, 'dir_path': list},
         'FILE_DELETE': {'file_name': str, 'dir_path': list},
+        'FILE_INFO': {'file_name': str, 'dir_path': list},
+        'FILE_MOVE': {'file_name': str, 'dir_path': list, 'destination_path': list},
+        'FILE_COPY': {'file_name': str, 'dir_path': list, 'destination_path': list},
 
         'DIR_CREATE': {'dir_name': str, 'dir_path': list},
         'DIR_DELETE': {'dir_name': str, 'dir_path': list},
@@ -48,6 +51,9 @@ class Request:
         # NAMING -> STORAGE
         'STORAGE_FILE_CREATE': {'file_name': str, 'dir_path': list},
         'STORAGE_FILE_DELETE': {'file_name': str, 'dir_path': list},
+        'STORAGE_FILE_MOVE':   {'file_name': str, 'dir_path': list, 'destination_path': list},
+        'STORAGE_FILE_COPY':   {'file_name': str, 'dir_path': list, 'destination_path': list},
+        'STORAGE_FILE_INFO':   {'file_name': str, 'dir_path': list},
         'STORAGE_FOLDER_CREATE': {'dir_name': str, 'dir_path': list},
         'STORAGE_FOLDER_DELETE': {'dir_name': str, 'dir_path': list},
         'RESET_REPLICA': {},

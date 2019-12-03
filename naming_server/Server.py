@@ -131,7 +131,7 @@ class NamingServer:
 
     def file_download(self, request_data: dict) -> Response:
         dir = self.file_tree.file_found(request_data['file_name'], request_data['dir_path'])
-        if dir is not None:
+        if dir:
             primary = self.get_primary()
             if primary is not None:
                 ip, port = primary.address
@@ -170,12 +170,44 @@ class NamingServer:
         # Prepare broadcast message to storages
         data = request_data.copy()
         request = Request('STORAGE_FILE_DELETE', params=data)
-
-        self.broadcast(request)
-        self.file_tree.delete_file(request_data['file_name'], request_data['dir_path'])
+        try:
+            self.broadcast(request)
+        except AssertionError:
+            return Response(500, {})
+        result = self.file_tree.delete_file(request_data['file_name'], request_data['dir_path'])
+        if result is None:
+            return Response(404, {})
 
         kek = self.file_tree.dir_read(request_data['dir_path'][-1], request_data['dir_path'])
         return Response(200, kek)
+
+    def file_move(self, request_data: dict) -> Response:
+
+        request = Request('STORAGE_FILE_MOVE', params=request_data)
+        try:
+            self.broadcast(request)
+        except AssertionError:
+            return Response(500, {})
+
+        filehash = self.file_tree.get_file_hash(request_data['file_name'], request_data['dir_path'])
+        self.file_tree.delete_file(request_data['file_name'], request_data['dir_path'])
+        res = self.file_tree.insert_file(hash=filehash, file_name=request_data['file_name'], path=request_data['destination_path'])
+
+        return Response(200, res)
+
+    def file_copy(self, request_data: dict) -> Response:
+
+        request = Request('STORAGE_FILE_COPY', params=request_data)
+        try:
+            self.broadcast(request)
+        except AssertionError:
+            return Response(500, {})
+
+        filehash = self.file_tree.get_file_hash(request_data['file_name'], request_data['dir_path'])
+        res = self.file_tree.insert_file(hash=filehash, file_name=request_data['file_name'],
+                                         path=request_data['destination_path'])
+
+        return Response(200, res)
 
     def unknown_instruction(self, request_data: dict) -> Response:
         return Response(400, {'error': 'Unknown Instruction'})
@@ -201,12 +233,34 @@ class NamingServer:
 
         return Response(200, {})
 
+    def file_info(self, request_data: dict) -> Response:
+        primary = self.get_primary()
+        if primary is not None:
+            ip, port = primary.address
+            connection = MessageProvider(ip, 9004)
+            connection.connect()
+            request = Request('STORAGE_FILE_INFO', {
+                'file_name': request_data['file_name'],
+                'dir_path': request_data['dir_path']
+            })
+            response = connection.send(request)
+            if response.status == 200:
+                response.data['name'] = request_data['file_name']
+                return Response(200, response.data)
+            else:
+                return Response(response.status, {"MSG": response.message()})
+        else:
+            return Response(500, {})
+
     CLIENT_CALLBACKS = {
         'CLIENT_INIT': init_client,
         'FILE_CREATE': file_create,
         'FILE_DOWNLOAD': file_download,
         'FILE_UPLOAD': file_upload,
         'FILE_DELETE': file_delete,
+        'FILE_MOVE': file_move,
+        'FILE_COPY': file_copy,
+        'FILE_INFO': file_info,
         'DIR_OPEN': open_directory,
         'DIR_READ': read_directory,
         'DIR_CREATE': create_directory,

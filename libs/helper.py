@@ -1,4 +1,5 @@
 import os
+import platform
 import socket
 import struct
 
@@ -54,3 +55,15 @@ def get_file_hash(file):
         buf = afile.read()
         hasher.update(buf)
     return hasher.hexdigest()
+
+def get_file_timestamp(path):
+    if platform.system() == 'Windows':
+        return os.path.getctime(path)
+    else:
+        stat = os.stat(path)
+        try:
+            return stat.st_birthtime
+        except AttributeError:
+            # We're probably on Linux. No easy way to get creation dates here,
+            # so we'll settle for when its content was last modified.
+            return stat.st_mtime
