@@ -18,12 +18,10 @@ class FileTree:
         return result
 
     def reset(self):
-        print(self.file_tree)
         self.file_tree['DIRS']['root']['FILES'] = {}
         self.file_tree['DIRS']['root']['DIRS'] = {}
 
         json_file = open(self.file_name, "w")
-        print(self.file_tree)
         json.dump(self.file_tree, json_file)
         json_file.close()
 

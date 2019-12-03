@@ -67,7 +67,7 @@ class Client:
     def connect(self, event=None):
         for i in range(3):
             try:
-                self.connection = MessageProvider('localhost', 9001)
+                self.connection = MessageProvider('3.125.80.251', 9001)
                 self.connection.connect()
                 print('Successfully connected to Naming Server')
                 break

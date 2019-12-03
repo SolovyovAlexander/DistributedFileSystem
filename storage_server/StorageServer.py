@@ -169,7 +169,10 @@ class StorageServer:
         dest_path = 'storage/' + '/'.join(dest_path)
 
         import shutil
-        shutil.move(source_path, dest_path)
+        try:
+            shutil.move(source_path, dest_path)
+        except FileNotFoundError:
+            return Response(404, {})
 
         return Response(200, {})
 
@@ -331,7 +334,7 @@ if __name__ == '__main__':
 
     # assert 3 == len(sys.argv)
     # sys.argv[1], sys.argv[2]
-    storage = StorageServer('localhost', 9002)
+    storage = StorageServer('3.125.80.251', 9002)
     request = Request('STORAGE_INIT', {})
     response = storage.send_req_to_naming(request)
     if response.status == 200:
