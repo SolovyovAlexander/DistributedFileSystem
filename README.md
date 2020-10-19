@@ -1,3 +1,5 @@
+Final project - distributed file system, that has several clients, one naming server and several storage servers
+
 To run client:
 ```
 py Client.py // -- win --
